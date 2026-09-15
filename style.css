@@ -1307,3 +1307,252 @@ a:hover { color: var(--gold2); }
     padding: 0 10px;
   }
 }
+
+
+/* ============================================================
+   LANDSCAPE / ORIENTATION ENFORCEMENT
+   ============================================================ */
+
+/* ── ROTATE PROMPT (blocking — battle page) ─────────────────── */
+.rotate-prompt {
+  display: none;
+  position: fixed; inset: 0;
+  z-index: 99999;
+  background: rgba(5,5,15,0.97);
+  backdrop-filter: blur(12px);
+  flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 20px;
+  text-align: center;
+  padding: 32px 24px;
+}
+.rotate-prompt.show { display: flex; }
+
+.rotate-icon {
+  font-size: 4rem;
+  animation: rotatePhone 1.6s ease-in-out infinite;
+  filter: drop-shadow(0 0 18px rgba(240,192,64,0.6));
+}
+@keyframes rotatePhone {
+  0%   { transform: rotate(0deg) scale(1); }
+  30%  { transform: rotate(-90deg) scale(1.1); }
+  60%  { transform: rotate(-90deg) scale(1); }
+  85%  { transform: rotate(0deg) scale(1); }
+  100% { transform: rotate(0deg) scale(1); }
+}
+
+.rotate-title {
+  font-family: 'Cinzel', serif;
+  font-size: 1.3rem; font-weight: 900;
+  color: var(--gold); letter-spacing: 3px;
+}
+.rotate-sub {
+  font-size: 0.88rem; color: var(--subtext);
+  letter-spacing: 1px; line-height: 1.6;
+  max-width: 260px;
+}
+
+/* ── ROTATE TOAST (soft — non-battle pages) ──────────────────── */
+.rotate-toast {
+  display: none;
+  position: fixed; bottom: 20px; left: 50%;
+  transform: translateX(-50%);
+  z-index: 9998;
+  background: rgba(10,10,20,0.96);
+  border: 1px solid rgba(240,192,64,0.4);
+  border-radius: 30px;
+  padding: 10px 20px;
+  gap: 10px;
+  align-items: center;
+  font-size: 0.82rem; color: var(--gold);
+  white-space: nowrap;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  animation: toastSlideUp 0.3s ease;
+}
+.rotate-toast.show { display: flex; }
+@keyframes toastSlideUp {
+  from { transform: translateX(-50%) translateY(20px); opacity: 0; }
+  to   { transform: translateX(-50%) translateY(0);    opacity: 1; }
+}
+.rotate-toast-icon { font-size: 1.1rem; }
+
+/* ── Only show rotate prompts on mobile portrait ─────────────── */
+/* On desktop or landscape — never show */
+@media (min-width: 900px),
+       (orientation: landscape) {
+  .rotate-prompt { display: none !important; }
+  .rotate-toast  { display: none !important; }
+}
+
+
+/* ============================================================
+   TENFOLD LEGENDS — PHONE LANDSCAPE GAME MODE
+   Optimized for MIT App Inventor WebViewer / Android phones.
+   The battle screen uses a compact one-row HUD + controls,
+   while menu pages remain touch-friendly and fit the viewport.
+   ============================================================ */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+body {
+  min-width: 0;
+  overscroll-behavior: none;
+}
+button, a, input, select, textarea {
+  touch-action: manipulation;
+}
+
+/* Phone landscape: roughly 320–900 CSS px wide */
+@media screen and (orientation: landscape) and (max-width: 900px) {
+  html, body {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .page {
+    min-height: 100dvh;
+    min-height: calc(var(--vh, 1vh) * 100);
+  }
+
+  /* Compact game navigation */
+  .navbar {
+    min-height: 42px !important;
+    height: 42px !important;
+    padding: 5px 10px !important;
+  }
+  .navbar-logo img { height: 29px !important; }
+  .navbar-logo span {
+    font-size: .85rem !important;
+    letter-spacing: 1px !important;
+  }
+  .nav-hamburger {
+    width: 34px !important;
+    height: 34px !important;
+  }
+  .nav-mobile-drawer {
+    top: 42px !important;
+  }
+
+  .page-header {
+    padding: 10px 14px 7px !important;
+  }
+  .page-title {
+    font-size: 1.15rem !important;
+    letter-spacing: 1.5px !important;
+  }
+  .page-subtitle {
+    font-size: .68rem !important;
+  }
+
+  /* Characters */
+  .heroes-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    padding: 0 10px !important;
+    max-width: 100% !important;
+  }
+  .hero-card { min-width: 0; }
+  .hero-card-name { font-size: .8rem !important; }
+  .hero-card-title { font-size: .6rem !important; }
+  .hero-card-info { padding: 6px !important; }
+
+  /* Story */
+  .story-page { padding-bottom: 12px !important; }
+  .story-banner {
+    min-height: 105px !important;
+    padding: 12px 18px !important;
+  }
+  .story-banner-title { font-size: 1.35rem !important; }
+  .story-banner-sub { font-size: .68rem !important; }
+  .story-stats-row { gap: 6px !important; }
+  .sstat-box { padding: 6px 9px !important; }
+  .sstat-val { font-size: 1rem !important; }
+  .sstat-lbl { font-size: .52rem !important; }
+  .story-chapters {
+    max-width: 100% !important;
+    padding: 10px 12px !important;
+    gap: 8px !important;
+  }
+  .chapter-header { padding: 9px 12px !important; gap: 9px !important; }
+  .chapter-num { font-size: 1.35rem !important; width: 34px !important; }
+  .chapter-title { font-size: .8rem !important; }
+  .chapter-desc { font-size: .65rem !important; }
+  .chapter-stages { padding: 0 12px 10px !important; gap: 6px !important; }
+  .stage-btn { padding: 7px 5px !important; }
+
+  /* Dashboard */
+  .dash-banner {
+    min-height: 125px !important;
+    padding: 0 15px 12px !important;
+  }
+  .dash-banner-content { gap: 10px !important; }
+  .dash-hero-portrait, .dash-hero-portrait-fb {
+    width: 75px !important; height: 88px !important;
+  }
+  .dash-username { font-size: 1.35rem !important; }
+  .dash-welcome { font-size: .58rem !important; letter-spacing: 1.5px !important; }
+  .dash-hero-name { font-size: .72rem !important; }
+  .dash-quote { display: none !important; }
+  .dash-score-box { min-width: 75px !important; padding: 7px 9px !important; }
+  .dash-score-val { font-size: 1.2rem !important; }
+  .dash-score-lbl { font-size: .52rem !important; }
+  .dash-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    max-width: 100% !important;
+    padding: 0 10px !important;
+    margin-top: 10px !important;
+  }
+  .dash-card-header { padding: 7px 9px !important; }
+  .dash-card-title { font-size: .58rem !important; letter-spacing: 1px !important; }
+  .dash-card { min-width: 0; }
+
+  /* Leaderboard */
+  .lb-banner {
+    padding: 12px 15px !important;
+    min-height: 90px !important;
+  }
+  .lb-banner-title { font-size: 1.35rem !important; }
+  .lb-banner-sub { font-size: .68rem !important; }
+  .lb-content {
+    grid-template-columns: 1fr 1.8fr !important;
+    padding: 8px 10px 0 !important;
+    gap: 8px !important;
+  }
+  .lb-stats-row { gap: 5px !important; }
+  .lb-stat { padding: 6px !important; }
+  .lb-stat-value { font-size: 1rem !important; }
+  .lb-stat-label { font-size: .5rem !important; }
+  .lb-table-wrap { padding: 0 10px !important; }
+  .lb-table th, .lb-table td {
+    padding: 6px 7px !important;
+    font-size: .7rem !important;
+  }
+
+  /* Inputs and common controls */
+  .form-group input {
+    min-height: 36px !important;
+    padding: 8px 10px !important;
+  }
+  .btn {
+    min-height: 38px !important;
+  }
+}
+
+/* Very short landscape phones: keep everything compact */
+@media screen and (orientation: landscape) and (max-height: 430px) {
+  .navbar { height: 38px !important; min-height: 38px !important; }
+  .nav-mobile-drawer { top: 38px !important; }
+  .page-header { padding: 7px 12px 5px !important; }
+  .page-title { font-size: 1rem !important; }
+
+  .heroes-grid { grid-template-columns: repeat(5, minmax(0,1fr)) !important; }
+  .story-banner { min-height: 82px !important; }
+  .dash-banner { min-height: 95px !important; }
+  .dash-hero-portrait, .dash-hero-portrait-fb {
+    width: 60px !important; height: 70px !important;
+  }
+}
