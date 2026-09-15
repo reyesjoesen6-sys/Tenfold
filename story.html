@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
   <title>Story Mode — Tenfold Legends</title>
   <link rel="stylesheet" href="style.css"/>
   <style>
@@ -253,7 +253,138 @@
     /* progress bar in header */
     .ch-prog-bar { height:4px; background:rgba(255,255,255,.07); border-radius:2px; overflow:hidden; margin-top:5px; }
     .ch-prog-fill { height:100%; border-radius:2px; background:linear-gradient(90deg,#a06800,#f0c040); transition:width .6s; }
+
+
+    /* ============================================================
+   MOBILE NAVBAR — NO HAMBURGER
+   Same layout as Dashboard / Characters / Leaderboard
+   ============================================================ */
+
+@media (max-width: 900px) {
+
+  .navbar {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    padding: 8px 10px !important;
+
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    white-space: nowrap !important;
+
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+  }
+
+  .navbar::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  /* Logo */
+  .navbar-logo {
+    display: flex !important;
+    flex: 0 0 auto !important;
+    align-items: center !important;
+  }
+
+  .navbar-logo span {
+    font-size: .72rem !important;
+    white-space: nowrap !important;
+  }
+
+  /* DIRECT NAVIGATION */
+  .navbar-links {
+    display: flex !important;
+    flex: 0 0 auto !important;
+    align-items: center !important;
+    gap: 4px !important;
+    overflow: visible !important;
+  }
+
+  .navbar-links .nav-btn {
+    display: inline-flex !important;
+    flex: 0 0 auto !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    padding: 7px 9px !important;
+    font-size: .68rem !important;
+    white-space: nowrap !important;
+  }
+
+  /* USER / SCORE / LOGOUT */
+  .nav-user {
+    display: flex !important;
+    flex: 0 0 auto !important;
+    align-items: center !important;
+    gap: 6px !important;
+  }
+
+  .nav-user > span {
+    display: none !important;
+  }
+
+  .nav-score {
+    display: inline-flex !important;
+    align-items: center !important;
+    font-size: .68rem !important;
+    white-space: nowrap !important;
+  }
+
+  .nav-user .nav-btn.danger {
+    display: inline-flex !important;
+    flex: 0 0 auto !important;
+
+    padding: 7px 9px !important;
+    font-size: .68rem !important;
+    white-space: nowrap !important;
+  }
+
+  /* COMPLETELY REMOVE HAMBURGER */
+  .nav-hamburger {
+    display: none !important;
+  }
+
+  /* COMPLETELY REMOVE MOBILE DRAWER */
+  .nav-mobile-drawer {
+    display: none !important;
+  }
+}
+
+
+/* SMALL PHONE */
+@media (max-width: 560px) {
+
+  .navbar {
+    padding: 7px 8px !important;
+    gap: 6px !important;
+  }
+
+  .navbar-logo span {
+    font-size: .62rem !important;
+    letter-spacing: 1px !important;
+  }
+
+  .navbar-links {
+    gap: 2px !important;
+  }
+
+  .navbar-links .nav-btn,
+  .nav-user .nav-btn.danger {
+    padding: 6px 7px !important;
+    font-size: .61rem !important;
+  }
+
+  .nav-score {
+    font-size: .61rem !important;
+  }
+}
   </style>
+<script>
+(function(){
+  try { if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(function(){}); } catch(e) {}
+})();
+</script>
 </head>
 <body class="story-page">
 <div class="bg-particles"></div>
@@ -435,15 +566,15 @@ const CHAPTERS = [
 ];
 
 // ══════════════════════════════════════════════════════════════
-// PROGRESS & SKILL UNLOCKS — stored in localStorage
+// PROGRESS & SKILL UNLOCKS — stored in safeLocalStorage
 // ══════════════════════════════════════════════════════════════
 // progress key:  "ch{N}_st{N}" → { completed, stars }
 // skill unlocks: "tenfold_skills_{userID}" → { aeron: ['basic'], lyra: [], ... }
 // hero unlocks:  "tenfold_unlocked_{userID}" → ['aeron','lyra',...]
 
-let progress     = JSON.parse(localStorage.getItem('tenfold_story_'   + user.userID) || '{}');
-let skillUnlocks = JSON.parse(localStorage.getItem('tenfold_skills_'  + user.userID) || '{}');
-let heroUnlocks  = JSON.parse(localStorage.getItem('tenfold_unlocked_'+ user.userID) || '["aeron","lyra"]');
+let progress     = JSON.parse(safeLocalStorage.getItem('tenfold_story_'   + user.userID) || '{}');
+let skillUnlocks = JSON.parse(safeLocalStorage.getItem('tenfold_skills_'  + user.userID) || '{}');
+let heroUnlocks  = JSON.parse(safeLocalStorage.getItem('tenfold_unlocked_'+ user.userID) || '["aeron","lyra"]');
 
 function storyKey(ch, st) { return `ch${ch}_st${st}`; }
 function isCleared(ch, st){ return !!(progress[storyKey(ch,st)]?.completed); }
@@ -483,7 +614,7 @@ function processUnlock(chapterObj, stageObj) {
     if (!skillUnlocks[heroId].includes(type)) {
       skillUnlocks[heroId].push(type);
       newUnlock = `${HEROES[heroId].name}'s ${type.charAt(0).toUpperCase()+type.slice(1)} Skill unlocked!`;
-      localStorage.setItem('tenfold_skills_' + user.userID, JSON.stringify(skillUnlocks));
+      safeLocalStorage.setItem('tenfold_skills_' + user.userID, JSON.stringify(skillUnlocks));
       apiCall({ action:'unlockChar', userID:user.userID, heroID:heroId }); // save to sheet too
     }
   } else if (type === 'next') {
@@ -491,7 +622,7 @@ function processUnlock(chapterObj, stageObj) {
     const nextChapter = CHAPTERS.find(c => c.chNum === chapterObj.chNum + 1);
     if (nextChapter && !heroUnlocks.includes(nextChapter.heroId)) {
       heroUnlocks.push(nextChapter.heroId);
-      localStorage.setItem('tenfold_unlocked_' + user.userID, JSON.stringify(heroUnlocks));
+      safeLocalStorage.setItem('tenfold_unlocked_' + user.userID, JSON.stringify(heroUnlocks));
       apiCall({ action:'unlockChar', userID:user.userID, heroID:nextChapter.heroId });
       newUnlock = `${HEROES[nextChapter.heroId].name} UNLOCKED!`;
     }
@@ -645,7 +776,7 @@ function buildChapters() {
       const accessible = isStageUnlocked(ch.chNum, st.stageNum) && unlocked;
       const isNext     = accessible && !cleared && si===stagesDone;
       const stars      = getStars(ch.chNum, st.stageNum);
-      const lvls       = JSON.parse(localStorage.getItem('tenfold_levels_'+user.userID)||'{}');
+      const lvls       = JSON.parse(safeLocalStorage.getItem('tenfold_levels_'+user.userID)||'{}');
       const playerLv   = lvls[selectedHeroId]||1;
 
       let cls = 'stage-btn';
@@ -726,37 +857,37 @@ function clickStage(chNum, stageNum, enemyId, stageName, accessible, isBoss, ene
   if (!selectedHeroId) { showToast('Select a hero first!','error'); setTimeout(()=>location.href='characters.html',1200); return; }
 
   // Store battle context
-  sessionStorage.setItem('tenfold_battle_mode',    'story');
-  sessionStorage.setItem('tenfold_battle_chapter', chNum);
-  sessionStorage.setItem('tenfold_battle_stage',   stageNum);
-  sessionStorage.setItem('tenfold_battle_enemy',   enemyId);
-  sessionStorage.setItem('tenfold_battle_name',    stageName);
-  sessionStorage.setItem('tenfold_battle_enemy_lv', enemyLv);
-  sessionStorage.setItem('tenfold_battle_is_boss',  isBoss ? '1' : '0');
+  safeSessionStorage.setItem('tenfold_battle_mode',    'story');
+  safeSessionStorage.setItem('tenfold_battle_chapter', chNum);
+  safeSessionStorage.setItem('tenfold_battle_stage',   stageNum);
+  safeSessionStorage.setItem('tenfold_battle_enemy',   enemyId);
+  safeSessionStorage.setItem('tenfold_battle_name',    stageName);
+  safeSessionStorage.setItem('tenfold_battle_enemy_lv', enemyLv);
+  safeSessionStorage.setItem('tenfold_battle_is_boss',  isBoss ? '1' : '0');
 
   // Find which chapter for unlock processing on return
-  sessionStorage.setItem('tenfold_battle_ch_obj', JSON.stringify({ chNum, heroId: enemyId }));
+  safeSessionStorage.setItem('tenfold_battle_ch_obj', JSON.stringify({ chNum, heroId: enemyId }));
 
   window.location.href = 'battle.html';
 }
 
 // ── GO ARENA (clears story session) ──────────────────────────
 function goArena() {
-  sessionStorage.setItem('tenfold_battle_mode', 'arena');
-  sessionStorage.removeItem('tenfold_battle_enemy');
-  sessionStorage.removeItem('tenfold_battle_enemy_lv');
-  sessionStorage.removeItem('tenfold_battle_chapter');
-  sessionStorage.removeItem('tenfold_battle_stage');
-  sessionStorage.removeItem('tenfold_battle_name');
-  sessionStorage.removeItem('tenfold_battle_is_boss');
-  sessionStorage.removeItem('tenfold_battle_ch_obj');
+  safeSessionStorage.setItem('tenfold_battle_mode', 'arena');
+  safeSessionStorage.removeItem('tenfold_battle_enemy');
+  safeSessionStorage.removeItem('tenfold_battle_enemy_lv');
+  safeSessionStorage.removeItem('tenfold_battle_chapter');
+  safeSessionStorage.removeItem('tenfold_battle_stage');
+  safeSessionStorage.removeItem('tenfold_battle_name');
+  safeSessionStorage.removeItem('tenfold_battle_is_boss');
+  safeSessionStorage.removeItem('tenfold_battle_ch_obj');
   location.href = 'battle.html';
 }
 // ══════════════════════════════════════════════════════════════
 function checkBattleReturn() {
-  const returned = sessionStorage.getItem('tenfold_story_return');
+  const returned = safeSessionStorage.getItem('tenfold_story_return');
   if (!returned) return;
-  sessionStorage.removeItem('tenfold_story_return');
+  safeSessionStorage.removeItem('tenfold_story_return');
 
   const { chNum, stageNum, won, stars } = JSON.parse(returned);
   if (!won) return;
@@ -765,7 +896,7 @@ function checkBattleReturn() {
   const key = storyKey(chNum, stageNum);
   if (!progress[key] || stars > (progress[key].stars||0)) {
     progress[key] = { completed: true, stars };
-    localStorage.setItem('tenfold_story_' + user.userID, JSON.stringify(progress));
+    safeLocalStorage.setItem('tenfold_story_' + user.userID, JSON.stringify(progress));
     apiCall({ action:'saveStory', userID:user.userID, chapter:chNum, stage:stageNum, stars });
   }
 
@@ -790,7 +921,7 @@ async function loadProgress() {
     res.progress.forEach(p => {
       progress[storyKey(p.chapter, p.stage)] = { completed:p.completed, stars:p.stars||0 };
     });
-    localStorage.setItem('tenfold_story_' + user.userID, JSON.stringify(progress));
+    safeLocalStorage.setItem('tenfold_story_' + user.userID, JSON.stringify(progress));
   }
   buildChapters();
   computeStats();
@@ -811,9 +942,9 @@ function showToast(msg, type='info') {
 // AUTO-LAUNCH NEXT STAGE (from "Next Stage" button in battle.html)
 // ══════════════════════════════════════════════════════════════
 function checkAutoNext() {
-  const raw = sessionStorage.getItem('tenfold_story_autonext');
+  const raw = safeSessionStorage.getItem('tenfold_story_autonext');
   if (!raw) return false;
-  sessionStorage.removeItem('tenfold_story_autonext');
+  safeSessionStorage.removeItem('tenfold_story_autonext');
 
   const { chNum, stageNum } = JSON.parse(raw);
   const chObj = CHAPTERS.find(c => c.chNum === chNum);
