@@ -1672,6 +1672,72 @@ async function showResult(outcome) {
       safeLocalStorage.setItem('tenfold_story_'+user.userID, JSON.stringify(storyProg));
     }
 
+    // ── SKILL UNLOCK ON STAGE CLEAR ───────────────────────
+    // Chapter 1, Stage 1 → unlock Basic Skill for the hero used
+    // Chapter 1, Stage 3 → unlock Special Skill
+    // Chapter 1, Stage 4 → unlock Ultimate Skill
+    // Skills unlock for ALL heroes at once (not just the one used),
+    // so the player can immediately use them with any hero.
+    (function unlockSkills() {
+      const ch = B.chapter, st = B.stage;
+      if (ch !== 1) return; // unlock gates are all in Chapter 1
+
+      const skillKey = 'tenfold_skills_' + user.userID;
+      const skillUL  = JSON.parse(safeLocalStorage.getItem(skillKey) || '{}');
+      const HERO_ORDER = ['aeron','lyra','kael','riven','selene','draven','mira','orion','brutus','elysia'];
+
+      // Determine which skills to unlock based on stage cleared
+      const toUnlock = [];
+      if (st >= 1) toUnlock.push('basic');
+      if (st >= 3) toUnlock.push('special');
+      if (st >= 4) toUnlock.push('ultimate');
+
+      let changed = false;
+      HERO_ORDER.forEach(hid => {
+        if (!skillUL[hid]) skillUL[hid] = [];
+        toUnlock.forEach(type => {
+          if (!skillUL[hid].includes(type)) {
+            skillUL[hid].push(type);
+            changed = true;
+          }
+        });
+      });
+
+      if (changed) {
+        safeLocalStorage.setItem(skillKey, JSON.stringify(skillUL));
+
+        // Show unlock notification on the result screen
+        const newlyUnlocked = [];
+        if (st === 1 && toUnlock.includes('basic'))    newlyUnlocked.push('Basic Skill');
+        if (st === 3 && toUnlock.includes('special'))  newlyUnlocked.push('Special Skill');
+        if (st === 4 && toUnlock.includes('ultimate')) newlyUnlocked.push('Ultimate Skill');
+
+        if (newlyUnlocked.length > 0) {
+          const notif = document.createElement('div');
+          notif.style.cssText = `
+            margin-top: 10px;
+            padding: 10px 20px;
+            background: rgba(240,192,64,0.15);
+            border: 1px solid rgba(240,192,64,0.5);
+            border-radius: 8px;
+            font-family: 'Cinzel', serif;
+            font-size: 0.85rem;
+            color: #f0c040;
+            letter-spacing: 1px;
+            text-align: center;
+          `;
+          notif.innerHTML = `🔓 SKILL UNLOCKED: <strong>${newlyUnlocked.join(', ')}</strong><br>
+            <span style="font-size:0.7rem;color:#aaa;font-family:'Rajdhani',sans-serif;">
+              Now available for all heroes!
+            </span>`;
+          document.querySelector('.result-box').appendChild(notif);
+        }
+
+        // Also sync skill unlocks to server as story progress
+        apiCall({ action: 'saveStory', userID: user.userID, chapter: ch, stage: st, stars: starsEarned });
+      }
+    })();
+
     // Figure out the next stage
     const curChapter = B.chapter;
     const curStage   = B.stage;
