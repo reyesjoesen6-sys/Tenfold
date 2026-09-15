@@ -870,9 +870,9 @@ if (_mobileSc) _mobileSc.textContent = user.totalScore || 0;
 })();
 
 // ── LOCAL DATA ────────────────────────────────────────────────
-const unlocked = JSON.parse(safeLocalStorage.getItem('tenfold_unlocked_' + user.userID) || '["aeron","lyra"]');
-const levels   = JSON.parse(safeLocalStorage.getItem('tenfold_levels_'   + user.userID) || '{}');
-const progress = JSON.parse(safeLocalStorage.getItem('tenfold_story_'    + user.userID) || '{}');
+let unlocked = JSON.parse(safeLocalStorage.getItem('tenfold_unlocked_' + user.userID) || '["aeron","lyra"]');
+let levels   = JSON.parse(safeLocalStorage.getItem('tenfold_levels_'   + user.userID) || '{}');
+let progress = JSON.parse(safeLocalStorage.getItem('tenfold_story_'    + user.userID) || '{}');
 
 // ── RANK TIERS ────────────────────────────────────────────────
 const RANK_TIERS = [
@@ -1252,29 +1252,223 @@ function renderTip() {
   document.getElementById('tip-text').innerHTML    = tip.text;
 }
 
-// ── LOAD ALL DATA ─────────────────────────────────────────────
-async function loadDashboard() {
-  // ── STEP 1: Fetch hero levels from server FIRST ───────────
-  // On mobile (MIT App Inventor WebViewer), localStorage starts empty.
-  // Pull authoritative levels from Google Sheets before rendering anything
-  // so the hero card and roster show the real level (e.g. Lv 4), not Lv 1.
-  const charsRes = await apiCall({ action: 'getChars', userID: user.userID });
-  if (charsRes.success && charsRes.characters) {
-    charsRes.characters.forEach(c => {
-      const servLv  = c.level || 1;
-      const servXP  = c.xp    || 0;
-      const localLv = levels[c.heroID] || 1;
-      if (servLv > localLv) {
-        levels[c.heroID]          = servLv;
-        levels[c.heroID + '_xp']  = servXP;
-      } else if (servLv === localLv) {
-        levels[c.heroID + '_xp'] = Math.max(levels[c.heroID + '_xp'] || 0, servXP);
+// ══════════════════════════════════════════════════════════════
+// FULL BI-DIRECTIONAL SYNC HELPERS
+// ══════════════════════════════════════════════════════════════
+
+// Storage keys (all scoped to userID)
+function SK(suffix) { return 'tenfold_' + suffix + '_' + user.userID; }
+const KEY = {
+  pending:  () => SK('pending_scores'),
+  levels:   () => SK('levels'),
+  unlocked: () => SK('unlocked'),
+  skills:   () => SK('skills'),
+  story:    () => SK('story'),
+  battles:  () => SK('battles'),
+  lbCache:  () => 'tenfold_lb_cache',
+  scoreCache: () => SK('score_cache'),
+};
+
+// ── FLUSH PENDING OFFLINE SCORES ─────────────────────────────
+// Pushes any battles queued while offline to the server.
+// Returns number of records successfully flushed.
+async function flushPendingScores() {
+  const pending = JSON.parse(safeLocalStorage.getItem(KEY.pending()) || '[]');
+  if (pending.length === 0) return 0;
+
+  let flushed = 0;
+  const remaining = [];
+
+  for (const p of pending) {
+    try {
+      const res = await apiCall(p);
+      if (res && res.success) {
+        flushed++;
+        if (res.newTotalScore !== undefined && res.newTotalScore > (user.totalScore || 0)) {
+          user.totalScore = res.newTotalScore;
+          Game.login(user);
+        }
+        // Push hero level that was earned with this offline battle
+        if (p.heroID) {
+          const lvls = JSON.parse(safeLocalStorage.getItem(KEY.levels()) || '{}');
+          apiCall({ action:'setHeroLevel', userID:user.userID,
+                    heroID:p.heroID, level:lvls[p.heroID]||1, xp:lvls[p.heroID+'_xp']||0 });
+        }
+      } else {
+        remaining.push(p);
       }
-    });
-    safeLocalStorage.setItem('tenfold_levels_' + user.userID, JSON.stringify(levels));
+    } catch(e) {
+      remaining.push(p);
+      break; // still offline, stop trying
+    }
   }
 
-  // ── STEP 2: Render with correct levels ────────────────────
+  safeLocalStorage.setItem(KEY.pending(), JSON.stringify(remaining));
+
+  if (flushed > 0) {
+    updateScoreUI(user.totalScore || 0);
+    showToast(`✅ ${flushed} offline battle${flushed > 1 ? 's' : ''} synced!`, 'success');
+  }
+  return flushed;
+}
+
+// ── DOWNLOAD FULL PLAYER DATA (server → local) ───────────────
+// Pulls hero levels/XP, unlocked heroes, story progress from
+// the server and caches everything locally for offline use.
+// Skills are derived from story progress (no separate server field).
+async function downloadPlayerData() {
+  // ── Hero levels + unlocked heroes ──
+  const charsRes = await apiCall({ action:'getChars', userID:user.userID });
+  if (charsRes.success && charsRes.characters) {
+    const lvls     = JSON.parse(safeLocalStorage.getItem(KEY.levels())   || '{}');
+    const unlockedSet = new Set(JSON.parse(safeLocalStorage.getItem(KEY.unlocked()) || '["aeron","lyra"]'));
+
+    charsRes.characters.forEach(c => {
+      const servLv = c.level || 1;
+      const servXP = c.xp    || 0;
+      const localLv = lvls[c.heroID] || 1;
+
+      // Take the HIGHER level between server and local (never downgrade)
+      if (servLv > localLv) {
+        lvls[c.heroID]         = servLv;
+        lvls[c.heroID + '_xp'] = servXP;
+      } else if (servLv === localLv) {
+        lvls[c.heroID + '_xp'] = Math.max(lvls[c.heroID + '_xp'] || 0, servXP);
+      }
+
+      // If server says hero is unlocked, unlock it locally too
+      if (c.unlocked) unlockedSet.add(c.heroID);
+    });
+
+    safeLocalStorage.setItem(KEY.levels(),   JSON.stringify(lvls));
+    safeLocalStorage.setItem(KEY.unlocked(), JSON.stringify([...unlockedSet]));
+  }
+
+  // ── Story progress ──
+  const storyRes = await apiCall({ action:'getStory', userID:user.userID });
+  if (storyRes.success && storyRes.progress) {
+    const prog = JSON.parse(safeLocalStorage.getItem(KEY.story()) || '{}');
+    storyRes.progress.forEach(p => {
+      const key = `${p.chapter}_${p.stage}`;
+      const local = prog[key] || {};
+      // Take best stars between server and local
+      if (p.completed && (!local.completed || (p.stars || 0) > (local.stars || 0))) {
+        prog[key] = { completed: true, stars: p.stars || 0 };
+      }
+    });
+    safeLocalStorage.setItem(KEY.story(), JSON.stringify(prog));
+
+    // ── Derive skill unlocks from story progress ──────────────
+    // Skills are locked/unlocked based on story stage completion.
+    // Re-derive them from the merged story progress so offline and
+    // online always have the same skill state.
+    const skillUL = JSON.parse(safeLocalStorage.getItem(KEY.skills()) || '{}');
+    const ALL_HEROES = ['aeron','lyra','kael','riven','selene','draven','mira','orion','brutus','elysia'];
+    const ch1s1 = prog['1_1']?.completed;
+    const ch1s3 = prog['1_3']?.completed;
+    const ch1s4 = prog['1_4']?.completed;
+    const toGrant = [];
+    if (ch1s1) toGrant.push('basic');
+    if (ch1s3) toGrant.push('special');
+    if (ch1s4) toGrant.push('ultimate');
+
+    if (toGrant.length > 0) {
+      ALL_HEROES.forEach(hid => {
+        if (!skillUL[hid]) skillUL[hid] = [];
+        toGrant.forEach(t => { if (!skillUL[hid].includes(t)) skillUL[hid].push(t); });
+      });
+      safeLocalStorage.setItem(KEY.skills(), JSON.stringify(skillUL));
+    }
+  }
+}
+
+// ── UPLOAD LOCAL DATA (local → server) ───────────────────────
+// Pushes hero levels that may be higher locally (from offline battles)
+// and story progress up to the server.
+async function uploadLocalData() {
+  const lvls = JSON.parse(safeLocalStorage.getItem(KEY.levels()) || '{}');
+  const prog = JSON.parse(safeLocalStorage.getItem(KEY.story())  || '{}');
+
+  // Push all hero levels
+  const ALL_HEROES = ['aeron','lyra','kael','riven','selene','draven','mira','orion','brutus','elysia'];
+  for (const hid of ALL_HEROES) {
+    const lv = lvls[hid] || 1;
+    const xp = lvls[hid + '_xp'] || 0;
+    if (lv > 1 || xp > 0) {
+      await apiCall({ action:'setHeroLevel', userID:user.userID, heroID:hid, level:lv, xp:xp });
+    }
+  }
+
+  // Push all completed story stages
+  for (const key of Object.keys(prog)) {
+    const p = prog[key];
+    if (!p.completed) continue;
+    const [ch, st] = key.split('_');
+    await apiCall({ action:'saveStory', userID:user.userID,
+                    chapter:ch, stage:st, stars:p.stars || 1 });
+  }
+}
+
+// ── UPDATE ALL SCORE DISPLAY ELEMENTS ────────────────────────
+function updateScoreUI(score) {
+  const s = formatNumber(score);
+  const els = {
+    'nav-score':    score,
+    'banner-score': s,
+    'stat-score':   s,
+    'nav-score-mobile': score,
+  };
+  Object.entries(els).forEach(([id, val]) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val;
+  });
+}
+
+// ── LOAD ALL DATA ─────────────────────────────────────────────
+async function loadDashboard() {
+  // ════════════════════════════════════════════════════════
+  // STEP 0 — FULL SYNC (runs only when online)
+  // Order:
+  //   a) Flush offline-queued scores → server
+  //   b) Upload local levels/story → server  (offline → online)
+  //   c) Download server levels/story/unlocks → local  (online → offline)
+  // ════════════════════════════════════════════════════════
+  const pingRes = await apiCall({ action:'ping' });
+  const isOnline = !!(pingRes && pingRes.success);
+
+  if (isOnline) {
+    // a) Push any queued offline battles first
+    await flushPendingScores();
+
+    // b) Upload local-only progress to server
+    await uploadLocalData();
+
+    // c) Download authoritative data from server
+    await downloadPlayerData();
+  } else {
+    // Offline: restore cached server score so display is accurate
+    const cachedScore = parseInt(safeLocalStorage.getItem(KEY.scoreCache()) || '0');
+    if (cachedScore > (user.totalScore || 0)) {
+      user.totalScore = cachedScore;
+      Game.login(user);
+    }
+  }
+
+  // Reload merged local data after sync — update module-level vars
+  // so ALL render functions (renderHeroCard, renderHeroesGrid, etc.) see fresh data
+  unlocked.length = 0;
+  JSON.parse(safeLocalStorage.getItem(KEY.unlocked()) || '["aeron","lyra"]')
+    .forEach(id => unlocked.push(id));
+
+  const freshLevels = JSON.parse(safeLocalStorage.getItem(KEY.levels()) || '{}');
+  Object.keys(levels).forEach(k => delete levels[k]);
+  Object.assign(levels, freshLevels);
+
+  const freshProg = JSON.parse(safeLocalStorage.getItem(KEY.story()) || '{}');
+  Object.keys(progress).forEach(k => delete progress[k]);
+  Object.assign(progress, freshProg);
+
+  // ── STEP 1: Render with correct data ─────────────────────
   renderBanner();
   renderHeroCard();
   renderStoryProgress();
@@ -1283,42 +1477,54 @@ async function loadDashboard() {
   renderTip();
   renderStats(0, 0, null);
 
-  // Load leaderboard for stats + mini board
-  const lbRes = await apiCall({ action: 'leaderboard' });
+  // ── STEP 2: Leaderboard ───────────────────────────────────
   let entries = [];
+  const lbRes = await apiCall({ action:'leaderboard' });
+
   if (lbRes.success && lbRes.leaderboard) {
     entries = lbRes.leaderboard;
+    // Cache for offline
+    safeLocalStorage.setItem(KEY.lbCache(), JSON.stringify({ ts:Date.now(), data:entries }));
   } else {
-    // Offline fallback
-    const saved = safeLocalStorage.getItem('tenfold_users');
-    const users = saved ? JSON.parse(saved) : [];
-    if (!users.find(u => u.id === user.userID)) {
-      users.push({ id: user.userID, username: user.username, score: user.totalScore || 0 });
+    // Use cached leaderboard when offline
+    try {
+      const cached = JSON.parse(safeLocalStorage.getItem(KEY.lbCache()) || 'null');
+      entries = (cached && cached.data) || [];
+    } catch(e) { entries = []; }
+
+    if (!entries.length) {
+      entries = [{ rank:1, userID:user.userID, username:user.username,
+                   totalScore:user.totalScore||0, wins:0, losses:0, winRate:'0%' }];
     }
-    entries = users.map((u,i) => ({
-      rank: i+1, userID: u.id, username: u.username,
-      totalScore: u.score || 0, wins: 0, losses: 0
-    })).sort((a,b) => b.totalScore - a.totalScore)
-      .map((e,i) => ({...e, rank: i+1}));
   }
 
   const me = entries.find(e => e.userID === user.userID);
+
+  // Sync score: always take the highest between server leaderboard, local, and cached
+  if (me && me.totalScore !== undefined) {
+    const best = Math.max(me.totalScore, user.totalScore || 0,
+                          parseInt(safeLocalStorage.getItem(KEY.scoreCache()) || '0'));
+    if (best !== (user.totalScore || 0)) {
+      user.totalScore = best;
+      Game.login(user);
+    }
+    // Cache the best known score for offline
+    safeLocalStorage.setItem(KEY.scoreCache(), String(best));
+  }
+
+  updateScoreUI(user.totalScore || 0);
+  renderBanner();
+  renderNextUnlock();
+
   renderStats(me?.wins || 0, me?.losses || 0, me?.rank || null);
   renderLbMini(entries);
 
-  // Load recent battles from score sheet (offline: local battle log)
-  const battles = JSON.parse(safeLocalStorage.getItem('tenfold_battles_' + user.userID) || '[]');
+  // Recent battles (local log)
+  const battles = JSON.parse(safeLocalStorage.getItem(KEY.battles()) || '[]');
   renderRecentBattles(battles);
 
-  // Load story progress from API
-  const storyRes = await apiCall({ action: 'getStory', userID: user.userID });
-  if (storyRes.success && storyRes.progress) {
-    storyRes.progress.forEach(p => {
-      progress[`${p.chapter}_${p.stage}`] = { completed: p.completed, stars: p.stars || 0 };
-    });
-    safeLocalStorage.setItem('tenfold_story_' + user.userID, JSON.stringify(progress));
-    renderStoryProgress(); // re-render with fresh data
-  }
+  // Story progress — already synced above, just re-render
+  renderStoryProgress();
 }
 
 function showToast(msg, type = 'info') {
