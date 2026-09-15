@@ -3,9 +3,39 @@
 // Shared hero data, sprite paths, API helpers, game state
 // ============================================================
 
+// ── SAFE STORAGE WRAPPERS ─────────────────────────────────────
+// MIT App Inventor WebViewer (and some Android WebViews) throw a
+// SecurityError when code touches localStorage / sessionStorage.
+// These wrappers silently fall back to an in-memory Map so the
+// game never crashes with "storage is unavailable".
+(function() {
+  function makeMemoryStore() {
+    const _m = {};
+    return {
+      getItem(k)      { return Object.prototype.hasOwnProperty.call(_m, k) ? _m[k] : null; },
+      setItem(k, v)   { _m[k] = String(v); },
+      removeItem(k)   { delete _m[k]; },
+      clear()         { Object.keys(_m).forEach(k => delete _m[k]); }
+    };
+  }
+
+  // Test whether real localStorage is accessible
+  function storageOk(store) {
+    try {
+      const TEST = '__tfl_test__';
+      store.setItem(TEST, '1');
+      store.removeItem(TEST);
+      return true;
+    } catch(e) { return false; }
+  }
+
+  window.safeLocalStorage   = storageOk(window.localStorage)   ? window.localStorage   : makeMemoryStore();
+  window.safeSessionStorage = storageOk(window.sessionStorage) ? window.sessionStorage : makeMemoryStore();
+})();
+
 // ── APPS SCRIPT WEB APP URL ───────────────────────────────────
 // After deploying Code.gs as a Web App, paste the URL here:
-const API_URL = 'https://script.google.com/macros/s/AKfycbxHq4LdAfSONpF3B0rGsB0NiR8PyqEdfHAaP5yh4IK7y6TqW0dbaNqediJtTyL_1bb0tg/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbzsePzbkciToeJwjmIFOJH8glRUQnlc4p6Z5hQnouApgnDSO21ge5KCrpxp_q_TZKrP/exec';
 
 // ── HERO DATABASE ─────────────────────────────────────────────
 const HEROES = {
@@ -753,7 +783,6 @@ const STORY_ENEMIES = {
     sprites: {
       idle:   'StoryEnemies/Fire/Ash Wolf/idle.png',
       walk:   'StoryEnemies/Fire/Ash Wolf/walk.png',
-      run:    'StoryEnemies/Fire/Ash Wolf/run.png',
       sprint: 'StoryEnemies/Fire/Ash Wolf/sprint.png',
       attack: 'StoryEnemies/Fire/Ash Wolf/attack.png',
       portrait: 'StoryEnemies/Fire/Ash Wolf/idle.png',
@@ -1320,56 +1349,115 @@ const STORY_ENEMIES = {
 
 // ── GAME STATE ────────────────────────────────────────────────
 const Game = {
-  user: null,        // { userID, username, totalScore, sessionID }
-  selectedHero: null, // hero id
+  user: null,
+  selectedHero: null,
   storyChapter: 1,
   storyStage: 1,
-
-  login(data) {
-    this.user = data;
-    localStorage.setItem('tenfold_user', JSON.stringify(data));
+  _readSession() {
+    // 1st: try safeLocalStorage (survives MIT App Inventor WebViewer page navigation)
+    try {
+      const raw = safeLocalStorage.getItem('TENFOLD_SESSION');
+      if (raw) return JSON.parse(raw);
+    } catch (e) {}
+    // 2nd: legacy fallback — window.name (works in normal browsers)
+    try {
+      const raw = String(window.name || '');
+      if (raw.startsWith('TENFOLD_SESSION:'))
+        return JSON.parse(decodeURIComponent(raw.slice('TENFOLD_SESSION:'.length)));
+    } catch (e) {}
+    return null;
   },
-  logout() {
-    this.user = null;
-    localStorage.removeItem('tenfold_user');
-    window.location.href = 'index.html';
+  _writeSession() {
+    try {
+      const data = JSON.stringify({user:this.user, selectedHero:this.selectedHero});
+      safeLocalStorage.setItem('TENFOLD_SESSION', data);
+      // also write window.name for normal browsers
+      window.name = 'TENFOLD_SESSION:' + encodeURIComponent(data);
+    } catch (e) {}
   },
+  login(data) { this.user = data; this._writeSession(); },
+  isAdmin() { return !!(this.user && this.user.isAdmin); },
+  logout() { this.user=null; this.selectedHero=null; safeLocalStorage.removeItem('TENFOLD_SESSION'); window.name=''; window.location.href='index.html'; },
   loadUser() {
-    const saved = localStorage.getItem('tenfold_user');
-    if (saved) this.user = JSON.parse(saved);
+    if (this.user) return this.user;
+    const saved=this._readSession();
+    if (saved && saved.user) { this.user=saved.user; this.selectedHero=saved.selectedHero||null; }
     return this.user;
   },
   requireLogin() {
-    if (!this.loadUser()) {
-      window.location.href = 'index.html';
-      return false;
-    }
+    if (!this.loadUser()) { window.location.href='index.html'; return false; }
     return true;
   },
-  selectHero(id) {
-    this.selectedHero = id;
-    sessionStorage.setItem('tenfold_hero', id);
-  },
+  selectHero(id) { this.selectedHero=id; this.loadUser(); this._writeSession(); },
   getSelectedHero() {
-    return this.selectedHero || sessionStorage.getItem('tenfold_hero');
+    if (this.selectedHero) return this.selectedHero;
+    const saved=this._readSession();
+    if (saved && saved.selectedHero) { this.selectedHero=saved.selectedHero; return this.selectedHero; }
+    return null;
   }
 };
 
 // ── API HELPER ────────────────────────────────────────────────
-async function apiCall(params) {
-  if (!API_URL || API_URL === 'YOUR_APPS_SCRIPT_WEB_APP_URL_HERE') {
-    console.warn('API_URL not set. Running in offline demo mode.');
-    return { success: false, message: 'API not configured.' };
-  }
-  const url = new URL(API_URL);
-  Object.entries(params).forEach(([k, v]) => url.searchParams.append(k, v));
-  try {
-    const res = await fetch(url.toString());
-    return await res.json();
-  } catch (err) {
-    console.error('API Error:', err);
-    return { success: false, message: 'Network error.' };
-  }
+function apiCall(params) {
+  return new Promise((resolve) => {
+    if (!API_URL || API_URL === 'YOUR_APPS_SCRIPT_WEB_APP_URL_HERE') {
+      resolve({ success: false, message: 'API not configured.' });
+      return;
+    }
+
+    // MIT App Inventor WebViewer can block normal fetch/CORS requests.
+    // JSONP uses a normal <script> request and works in WebViewer.
+    const callbackName = '__tfl_jsonp_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
+    const script = document.createElement('script');
+    const url = new URL(API_URL);
+
+    Object.entries(params || {}).forEach(([k, v]) => {
+      url.searchParams.append(k, v == null ? '' : String(v));
+    });
+    url.searchParams.set('callback', callbackName);
+
+    let finished = false;
+    const cleanup = () => {
+      if (script.parentNode) script.parentNode.removeChild(script);
+      try { delete window[callbackName]; } catch (_) { window[callbackName] = undefined; }
+    };
+    const finish = (result) => {
+      if (finished) return;
+      finished = true;
+      cleanup();
+      resolve(result && typeof result === 'object'
+        ? result
+        : { success: false, message: 'Invalid server response.' });
+    };
+
+    window[callbackName] = finish;
+    script.async = true;
+
+    try {
+      script.src = url.toString();
+    } catch (err) {
+      finish({
+        success: false,
+        message: 'Invalid Apps Script Web App URL.'
+      });
+      return;
+    }
+    script.onerror = () => finish({
+      success: false,
+      message: 'Cannot connect to Google Sheets. Check your Apps Script Web App deployment and internet connection.'
+    });
+
+    // Never leave the MIT App Inventor WebViewer waiting forever.
+    setTimeout(() => {
+      if (!finished) finish({
+        success: false,
+        timeout: true,
+        message: 'Connection timed out. Make sure the Apps Script Web App is deployed as Anyone.'
+      });
+    }, 7000);
+
+    document.head.appendChild(script);
+  });
 }
 
 // ── STAT SCALING ──────────────────────────────────────────────
