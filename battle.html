@@ -1776,10 +1776,61 @@ async function showResult(outcome) {
       <button class="rbtn ghost" onclick="location.href='dashboard.html'">🏠 Dashboard</button>`;
   }
 
-  apiCall({action:'addScore',userID:user.userID,username:user.username,
-    heroID:B.playerHeroId,heroName:B.pHero.name,
-    enemyHeroID:B.enemyHeroId,enemyName:B.eHero.name,
-    result:outcome,chapter:B.chapter});
+  // ── OFFLINE-AWARE SCORE SUBMIT ────────────────────────────
+  // Try to push the score to the server.
+  // If offline (or server times out), queue it locally in
+  // tenfold_pending_scores_<userID> so dashboard.html can
+  // flush it the next time the player is online.
+  (async function submitScore() {
+    const payload = {
+      action:      'addScore',
+      userID:      user.userID,
+      username:    user.username,
+      heroID:      B.playerHeroId,
+      heroName:    B.pHero.name,
+      enemyHeroID: B.enemyHeroId,
+      enemyName:   B.eHero.name,
+      result:      outcome,
+      chapter:     B.chapter
+    };
+
+    const PENDING_KEY = 'tenfold_pending_scores_' + user.userID;
+
+    try {
+      const res = await apiCall(payload);
+      if (res && res.success) {
+        // Server accepted — update the authoritative score from server response
+        if (res.newTotalScore !== undefined) {
+          user.totalScore = res.newTotalScore;
+          Game.login(user);
+        }
+        // If there are previously queued pending scores, try to flush them now
+        flushPendingScores();
+      } else {
+        // Server responded but failed (rare) — queue it
+        queuePendingScore(payload);
+      }
+    } catch(e) {
+      // Network error / offline — queue it
+      queuePendingScore(payload);
+    }
+
+    function queuePendingScore(p) {
+      const pending = JSON.parse(safeLocalStorage.getItem(PENDING_KEY) || '[]');
+      // Avoid duplicates: same battle (same date + hero + result)
+      const isDupe = pending.some(x =>
+        x.heroID === p.heroID && x.result === p.result &&
+        x.enemyHeroID === p.enemyHeroID && x.battleDate === p.battleDate
+      );
+      if (!isDupe) {
+        p.battleDate = p.battleDate || new Date().toISOString();
+        p.pts        = won ? 100 : 10;
+        pending.push(p);
+        // Cap at 200 pending entries to avoid bloat
+        safeLocalStorage.setItem(PENDING_KEY, JSON.stringify(pending.slice(-200)));
+      }
+    }
+  })();
 }
 
 // ── NEXT STAGE HELPER ─────────────────────────────────────────
@@ -1793,6 +1844,45 @@ function goNextStage(chNum, stageNum) {
 function fleeBattle() {
   if (B.over) return;
   if (confirm('Flee the battle?')) { B.over=true; showResult('lose'); }
+}
+
+// ── FLUSH PENDING OFFLINE SCORES ─────────────────────────────
+// Called after a successful server sync. Drains the local queue
+// one-by-one, updating user.totalScore from each server response.
+async function flushPendingScores() {
+  const PENDING_KEY = 'tenfold_pending_scores_' + user.userID;
+  const pending = JSON.parse(safeLocalStorage.getItem(PENDING_KEY) || '[]');
+  if (pending.length === 0) return;
+
+  const remaining = [];
+  for (const p of pending) {
+    try {
+      const res = await apiCall(p);
+      if (res && res.success) {
+        // Update local score from server authoritative value
+        if (res.newTotalScore !== undefined && res.newTotalScore > (user.totalScore || 0)) {
+          user.totalScore = res.newTotalScore;
+          Game.login(user);
+        }
+        // Also sync the hero level for this pending battle
+        if (p.heroID) {
+          const lvls = JSON.parse(safeLocalStorage.getItem('tenfold_levels_' + user.userID) || '{}');
+          const lv   = lvls[p.heroID] || 1;
+          const xp   = lvls[p.heroID + '_xp'] || 0;
+          apiCall({ action: 'setHeroLevel', userID: user.userID, heroID: p.heroID, level: lv, xp: xp });
+        }
+      } else {
+        remaining.push(p); // still failed — keep in queue
+      }
+    } catch(e) {
+      remaining.push(p); // still offline — keep in queue
+      break; // no point trying the rest
+    }
+  }
+
+  if (remaining.length !== pending.length) {
+    safeLocalStorage.setItem(PENDING_KEY, JSON.stringify(remaining));
+  }
 }
 
 // ── ROLL CARD UPDATE ─────────────────────────────────────────
