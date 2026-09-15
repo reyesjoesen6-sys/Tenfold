@@ -919,8 +919,18 @@ function renderBanner() {
     // Portrait
     const pWrap = document.getElementById('banner-portrait');
     if (h.sprites.portrait) {
-      pWrap.innerHTML = `<img src="${h.sprites.portrait}" class="dash-hero-portrait" alt="${h.name}"
-        onerror="this.outerHTML='<div class=\\"dash-hero-portrait-fb\\">${ELEMENT_ICONS[h.element]}</div>'">`;
+      const img = document.createElement('img');
+      img.src = h.sprites.portrait;
+      img.className = 'dash-hero-portrait';
+      img.alt = h.name;
+      img.onerror = function() {
+        const fb = document.createElement('div');
+        fb.className = 'dash-hero-portrait-fb';
+        fb.textContent = ELEMENT_ICONS[h.element];
+        this.parentNode.replaceChild(fb, this);
+      };
+      pWrap.innerHTML = '';
+      pWrap.appendChild(img);
     } else {
       pWrap.innerHTML = `<div class="dash-hero-portrait-fb">${ELEMENT_ICONS[h.element]}</div>`;
     }
@@ -974,7 +984,7 @@ function renderHeroCard() {
 
   const portraitHtml = h.sprites.portrait
     ? `<img src="${h.sprites.portrait}" class="my-hero-portrait" alt="${h.name}"
-          onerror="this.outerHTML='<div class=\\"my-hero-portrait-fb\\">${ELEMENT_ICONS[h.element]}</div>'">`
+          onerror="this.style.display='none'">`
     : `<div class="my-hero-portrait-fb">${ELEMENT_ICONS[h.element]}</div>`;
 
   function miniBar(lbl, val, max, color) {
