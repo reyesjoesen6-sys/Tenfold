@@ -2,8 +2,16 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
+<link rel="manifest" href="manifest.json"/>
 <title>Battle Arena — Tenfold Legends</title>
+<script>
+(function(){
+  if (screen.orientation && screen.orientation.lock) {
+    screen.orientation.lock('landscape').catch(function(){});
+  }
+})();
+</script>
 <link rel="stylesheet" href="style.css"/>
 <style>
 /* ── PAGE ── */
@@ -344,9 +352,205 @@ html { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
   .result-label   { font-size: 2.8rem; letter-spacing: 3px; }
   .rbtn           { padding: 9px 14px; font-size: 0.78rem; flex: 1; min-width: 120px; }
 }
+
+/* ============================================================
+   BATTLE — MOBILE LANDSCAPE / MOBILE-LEGENDS-LIKE COMPACT HUD
+   ============================================================ */
+@media screen and (orientation: landscape) and (max-width: 900px) {
+  html, body {
+    width: 100vw !important;
+    height: 100dvh !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+  .arena-page {
+    width: 100vw !important;
+    height: 100dvh !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  /* Keep the arena as the main focus */
+  .arena-stage {
+    min-height: 0 !important;
+    height: auto !important;
+  }
+  .arena-bg { background-position: center center !important; }
+
+  /* Compact top HUD */
+  .hud-top {
+    padding: 5px 7px 0 !important;
+    gap: 3px !important;
+  }
+  .hud-top > div:last-child {
+    gap: 4px !important;
+  }
+  .hud-box {
+    padding: 4px 7px !important;
+    border-radius: 5px !important;
+  }
+  .hud-vs {
+    position: absolute !important;
+    top: 7px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: auto !important;
+    padding: 0 !important;
+    z-index: 3 !important;
+  }
+  .vs-text { font-size: .9rem !important; }
+  .turn-text { font-size: .48rem !important; letter-spacing: .8px !important; }
+  .hud-hero-name { font-size: .63rem !important; }
+  .hud-lv { font-size: .5rem !important; }
+  .hud-bars { margin-top: 2px !important; }
+  .hud-bar-row { margin-bottom: 1px !important; gap: 3px !important; }
+  .hud-bar-label { font-size: .48rem !important; width: 17px !important; }
+  .hud-bar-track { height: 5px !important; }
+  .hud-bar-val { font-size: .48rem !important; min-width: 42px !important; }
+  .status-badges { margin-top: 1px !important; gap: 2px !important; }
+  .status-badge { font-size: .43rem !important; padding: 0 3px !important; }
+
+  .map-tag {
+    top: 43px !important;
+    font-size: .52rem !important;
+    padding: 2px 8px !important;
+    letter-spacing: 1px !important;
+  }
+
+  /* Fighters: scale to available arena height */
+  .fighters-row {
+    padding: 0 8vw 5px !important;
+  }
+  .fighter-sprite-wrap {
+    width: clamp(105px, 25vw, 185px) !important;
+    height: clamp(135px, 48vh, 225px) !important;
+  }
+  .fighter-sprite {
+    width: 100% !important;
+    height: 100% !important;
+  }
+
+  /* Skill FX and damage text stay proportional */
+  .skill-fx { width: 130px !important; height: 130px !important; }
+  .impact-burst { width: 80px !important; height: 80px !important; }
+  .dmg-num { font-size: 1.5rem !important; }
+  .dmg-num.crit { font-size: 1.9rem !important; }
+
+  /* ONE ROW controls — no vertical stacking */
+  .controls-wrap {
+    flex-shrink: 0 !important;
+    min-height: 66px !important;
+    height: 66px !important;
+    padding: 4px 7px !important;
+    gap: 7px !important;
+    flex-wrap: nowrap !important;
+    overflow: hidden !important;
+  }
+  .skills-wrap {
+    order: 0 !important;
+    width: auto !important;
+    flex-shrink: 0 !important;
+    justify-content: flex-start !important;
+    gap: 5px !important;
+  }
+  .skill-slot { gap: 1px !important; }
+  .skill-slot-label { font-size: .42rem !important; }
+  .skill-btn {
+    width: 49px !important;
+    height: 49px !important;
+    border-radius: 6px !important;
+    border-width: 1px !important;
+  }
+  .skill-name-tag {
+    display: none !important;
+  }
+  .skill-key-hint { font-size: .42rem !important; }
+  .skill-mana-cost { font-size: .4rem !important; top: 1px !important; left: 2px !important; }
+  .skill-cd-overlay { font-size: 1rem !important; }
+  .skill-btn-fb { font-size: 1rem !important; }
+  .skill-btn-fb small { font-size: .4rem !important; }
+
+  .ctrl-divider {
+    display: block !important;
+    width: 1px !important;
+    height: 44px !important;
+    flex-shrink: 0 !important;
+  }
+  .battle-log {
+    order: 0 !important;
+    flex: 1 1 auto !important;
+    min-width: 70px !important;
+    max-width: none !important;
+    height: 50px !important;
+    padding: 3px 6px !important;
+    font-size: .53rem !important;
+    line-height: 1.25 !important;
+  }
+  .action-area {
+    order: 0 !important;
+    flex-direction: column !important;
+    gap: 2px !important;
+    flex-shrink: 0 !important;
+  }
+  #btn-attack {
+    padding: 6px 10px !important;
+    min-height: 32px !important;
+    font-size: .62rem !important;
+    letter-spacing: .7px !important;
+    white-space: nowrap !important;
+  }
+  .btn-flee {
+    padding: 2px 9px !important;
+    min-height: 21px !important;
+    font-size: .5rem !important;
+  }
+
+  /* Roll / result screens fit small landscape */
+  #roll-overlay { padding: 8px !important; gap: 7px !important; }
+  .roll-title { font-size: 1rem !important; letter-spacing: 3px !important; }
+  .roll-subtitle { font-size: .52rem !important; letter-spacing: 1.5px !important; }
+  .roll-fighters { gap: 12px !important; margin: 3px 0 !important; }
+  .roll-card { width: 78px !important; height: 105px !important; border-radius: 8px !important; }
+  .roll-card-overlay { padding: 18px 4px 5px !important; }
+  .roll-card-name { font-size: .6rem !important; }
+  .roll-card-sub { font-size: .43rem !important; }
+  .roll-card-emoji { font-size: 1rem !important; }
+  .roll-vs { font-size: 1.25rem !important; }
+  .roll-map-label { font-size: .45rem !important; }
+  .roll-map-name { font-size: .7rem !important; }
+  #roll-start-btn { margin-top: 2px !important; padding: 7px 20px !important; font-size: .65rem !important; }
+
+  .result-label { font-size: 3rem !important; letter-spacing: 3px !important; }
+  .result-sub { font-size: .65rem !important; letter-spacing: 2px !important; margin: 3px 0 7px !important; }
+  .result-pts { font-size: .75rem !important; margin-bottom: 4px !important; }
+  .result-pts span { font-size: 1.4rem !important; }
+  .result-hero-info { font-size: .58rem !important; margin-bottom: 9px !important; }
+  .result-btns { gap: 6px !important; }
+  .rbtn { padding: 7px 12px !important; font-size: .6rem !important; }
+}
+
+/* Extra-short landscape (common 320–400px-high displays) */
+@media screen and (orientation: landscape) and (max-height: 380px) and (max-width: 900px) {
+  .controls-wrap { height: 59px !important; min-height: 59px !important; }
+  .skill-btn { width: 43px !important; height: 43px !important; }
+  .fighter-sprite-wrap {
+    width: clamp(95px, 24vw, 160px) !important;
+    height: clamp(120px, 44vh, 185px) !important;
+  }
+  .battle-log { height: 44px !important; }
+  #btn-attack { min-height: 28px !important; padding: 4px 8px !important; }
+}
+
 </style>
 </head>
 <body>
+
+<!-- ══ ROTATE PROMPT (mobile portrait only) ══ -->
+<div class="rotate-prompt" id="rotate-prompt">
+  <div class="rotate-icon">📱</div>
+  <div class="rotate-title">ROTATE YOUR DEVICE</div>
+  <div class="rotate-sub">Tenfold Legends Battle Arena plays best in <strong style="color:var(--gold);">landscape mode</strong>. Please rotate your phone to continue.</div>
+</div>
 
 <!-- ══ ROLL OVERLAY (fixed, outside arena-page) ══ -->
 <div id="roll-overlay">
@@ -524,6 +728,39 @@ document.addEventListener('DOMContentLoaded', () => {
   if (page) page.style.height = 'calc(var(--vh, 1vh) * 100)';
 });
 
+// ── PORTRAIT LOCK (battle page — blocking) ────────────────────
+(function() {
+  const prompt = document.getElementById('rotate-prompt');
+  if (!prompt) return;
+
+  function isMobile() {
+    return window.innerWidth <= 900 || 'ontouchstart' in window;
+  }
+  function isPortrait() {
+    if (screen.orientation && screen.orientation.type) {
+      return screen.orientation.type.startsWith('portrait');
+    }
+    return window.innerHeight > window.innerWidth;
+  }
+  function checkOrientation() {
+    if (isMobile() && isPortrait()) {
+      prompt.classList.add('show');
+      document.body.style.overflow = 'hidden';
+    } else {
+      prompt.classList.remove('show');
+      document.body.style.overflow = '';
+    }
+  }
+
+  // Fire immediately — no delay, no portrait flash
+  checkOrientation();
+  window.addEventListener('resize', checkOrientation);
+  window.addEventListener('orientationchange', () => setTimeout(checkOrientation, 150));
+  if (screen.orientation) {
+    screen.orientation.addEventListener('change', () => setTimeout(checkOrientation, 150));
+  }
+})();
+
 // ── AUTO LOGIN (no redirect on file://) ──────────────────────
 Game.loadUser();
 if (!Game.user) {
@@ -596,9 +833,9 @@ function initBattleState(pId, eId, mapObj, pLv, eLv) {
   const pH = getEntity(pId), eH = getEntity(eId);
   const pS = getScaledStats(pId, pLv), eS = getScaledStats(eId, eLv);
   B = {
-    mode:    sessionStorage.getItem('tenfold_battle_mode')    || 'arena',
-    chapter: +sessionStorage.getItem('tenfold_battle_chapter') || 0,
-    stage:   +sessionStorage.getItem('tenfold_battle_stage')   || 0,
+    mode:    safeSessionStorage.getItem('tenfold_battle_mode')    || 'arena',
+    chapter: +safeSessionStorage.getItem('tenfold_battle_chapter') || 0,
+    stage:   +safeSessionStorage.getItem('tenfold_battle_stage')   || 0,
     playerHeroId:pId, enemyHeroId:eId, map:mapObj,
     pHero:pH, pMaxHp:pS.hp, pHp:pS.hp, pMaxMp:100, pMp:100,
     pAtk:pS.atk, pDef:pS.def, pSpd:pS.spd, pCrit:pS.crit, pLevel:pLv,
@@ -748,20 +985,20 @@ function renderStatus(elId, burn, freeze, paralyzed, guard) {
 
 function updateSkillBtns() {
   const isStory  = B.mode === 'story';
-  const skillUL  = isStory ? null :
-    JSON.parse(localStorage.getItem('tenfold_skills_' + (Game.user && Game.user.userID || 'demo')) || '{}');
+  const skillUL  = JSON.parse(safeLocalStorage.getItem('tenfold_skills_' + (Game.user && Game.user.userID || 'demo')) || '{}');
 
-  // In arena mode, a skill is playable only if it has been unlocked via story progress.
-  // Basic is gated behind ch1 stage1, special stage3, ultimate stage4.
-  // In story mode skills are always available (no gating during the story battles themselves).
+  // A skill is playable when:
+  //   • The player is an admin (all skills always available), OR
+  //   • The skill has been unlocked via story progress (tenfold_skills_ localStorage).
+  // This applies equally in both story battles and arena — you only use what you've earned.
   function isSkillPlayable(type) {
-    if (isStory) return true;
-    const heroId  = B.playerHeroId;
+    if (Game.isAdmin()) return true; // admins always have all skills
+    const heroId   = B.playerHeroId;
     const unlocked = (skillUL && skillUL[heroId]) ? skillUL[heroId] : [];
     return unlocked.includes(type);
   }
 
-  // Hint shown beneath each locked skill
+  // Hint text shown on the lock overlay
   const SKILL_HINTS = {
     basic:    'Clear Ch.1 Stage 1',
     special:  'Clear Ch.1 Stage 3',
@@ -1119,10 +1356,11 @@ function useAttack() {
 function useSkill(type) {
   if (B.turn!=='player'||B.locked||B.over) return;
 
-  // Block story-locked skills in arena mode
-  if (B.mode !== 'story') {
-    const skillUL  = JSON.parse(localStorage.getItem('tenfold_skills_' + (Game.user && Game.user.userID || 'demo')) || '{}');
-    const unlocked = (skillUL[B.playerHeroId]) || [];
+  // Block locked skills in both arena AND story mode
+  // (admins bypass this — Game.isAdmin() check is inside the same storage read)
+  {
+    const skillUL  = JSON.parse(safeLocalStorage.getItem('tenfold_skills_' + (Game.user && Game.user.userID || 'demo')) || '{}');
+    const unlocked = Game.isAdmin() ? ['basic','special','ultimate'] : ((skillUL[B.playerHeroId]) || []);
     if (!unlocked.includes(type)) {
       const hints = { basic:'Clear Chapter 1 Stage 1', special:'Clear Chapter 1 Stage 3', ultimate:'Clear Chapter 1 Stage 4' };
       logMsg(`🔒 ${B.pHero.skills[type].name} is locked! ${hints[type]} in Story Mode to unlock.`, 'ls');
@@ -1250,14 +1488,22 @@ function pickEnemySkill() {
   const mp  = B.eMp;
   const rng = Math.random();
 
+  // In story mode, enemy skill availability mirrors the player's unlock progression:
+  //   stage 1 → basic only
+  //   stage 3+ → special unlocked
+  //   stage 4+ → ultimate unlocked
+  // In arena mode (hero vs hero) all enemy skills are always available.
+  const stageNum = B.stage || 0;
+  const canSpecial  = B.mode !== 'story' || stageNum >= 3;
+  const canUltimate = B.mode !== 'story' || stageNum >= 4;
+
   // ── ULTIMATE — use whenever available + affordable ──
-  // More aggressive: use at 80 MP even at full health (25% chance), always when low HP
-  if (B.eCD.ultimate === 0 && mp >= 80) {
+  if (canUltimate && B.eCD.ultimate === 0 && mp >= 80) {
     if (hp < 0.5 || rng < 0.35) return 'ultimate';
   }
 
   // ── SPECIAL — use frequently when available ──
-  if (B.eCD.special === 0 && mp >= 30) {
+  if (canSpecial && B.eCD.special === 0 && mp >= 30) {
     const sp = B.eHero.skills.special;
     // Heal special: always use when HP below 55%
     if (sp.damage < 0 && hp < 0.55) return 'special';
@@ -1384,18 +1630,25 @@ async function showResult(outcome) {
   const newScore = (user.totalScore||0)+pts;
   user.totalScore = newScore; Game.login(user);
 
-  const bl = JSON.parse(localStorage.getItem('tenfold_battles_'+user.userID)||'[]');
+  const bl = JSON.parse(safeLocalStorage.getItem('tenfold_battles_'+user.userID)||'[]');
   bl.unshift({heroID:B.playerHeroId,heroName:B.pHero.name,enemyHeroID:B.enemyHeroId,
     enemyHeroName:B.eHero.name,result:outcome,battleDate:new Date().toISOString(),
     storyChapter: B.mode==='story' ? B.chapter : 0});
-  localStorage.setItem('tenfold_battles_'+user.userID, JSON.stringify(bl.slice(0,20)));
+  safeLocalStorage.setItem('tenfold_battles_'+user.userID, JSON.stringify(bl.slice(0,20)));
 
-  const lvls = JSON.parse(localStorage.getItem('tenfold_levels_'+user.userID)||'{}');
+  const lvls = JSON.parse(safeLocalStorage.getItem('tenfold_levels_'+user.userID)||'{}');
   const prevLv = lvls[B.playerHeroId]||1;
   let xp = (lvls[B.playerHeroId+'_xp']||0)+pts, lv=prevLv;
   while (xp>=lv*100) { xp-=lv*100; lv++; }
   lvls[B.playerHeroId]=lv; lvls[B.playerHeroId+'_xp']=xp;
-  localStorage.setItem('tenfold_levels_'+user.userID, JSON.stringify(lvls));
+  safeLocalStorage.setItem('tenfold_levels_'+user.userID, JSON.stringify(lvls));
+
+  // ── SYNC LEVEL/XP TO SERVER ───────────────────────────────
+  // Push the authoritative level+XP to Google Sheets so every
+  // device (PC, APK, phone browser) reads the same value.
+  apiCall({ action:'setHeroLevel', userID:user.userID,
+            heroID:B.playerHeroId, level:lv, xp:xp });
+
   if (lv>prevLv) {
     const n=document.createElement('div'); n.className='lvl-up-notif';
     n.textContent=`⬆ ${B.pHero.name} reached Level ${lv}!`;
@@ -1405,18 +1658,18 @@ async function showResult(outcome) {
 
   // ── STORY MODE: save progress & build result buttons ──────
   if (B.mode==='story' && won) {
-    // Save stage completion to localStorage for story.html to pick up
+    // Save stage completion to safeLocalStorage for story.html to pick up
     const starsEarned = B.pHp > B.pMaxHp*0.5 ? 3 : B.pHp > B.pMaxHp*0.25 ? 2 : 1;
-    sessionStorage.setItem('tenfold_story_return', JSON.stringify({
+    safeSessionStorage.setItem('tenfold_story_return', JSON.stringify({
       chNum: B.chapter, stageNum: B.stage, won: true, stars: starsEarned
     }));
 
     // Save progress immediately here too so it's not lost
-    const storyProg = JSON.parse(localStorage.getItem('tenfold_story_'+user.userID)||'{}');
+    const storyProg = JSON.parse(safeLocalStorage.getItem('tenfold_story_'+user.userID)||'{}');
     const key = `ch${B.chapter}_st${B.stage}`;
     if (!storyProg[key] || starsEarned > (storyProg[key].stars||0)) {
       storyProg[key] = { completed:true, stars:starsEarned };
-      localStorage.setItem('tenfold_story_'+user.userID, JSON.stringify(storyProg));
+      safeLocalStorage.setItem('tenfold_story_'+user.userID, JSON.stringify(storyProg));
     }
 
     // Figure out the next stage
@@ -1467,7 +1720,7 @@ async function showResult(outcome) {
 // Stores the next stage info and reloads battle.html directly —
 // no trip back to story.html needed for sequential stages.
 function goNextStage(chNum, stageNum) {
-  sessionStorage.setItem('tenfold_story_autonext', JSON.stringify({ chNum, stageNum }));
+  safeSessionStorage.setItem('tenfold_story_autonext', JSON.stringify({ chNum, stageNum }));
   location.href = 'story.html';
 }
 
@@ -1517,23 +1770,62 @@ function updateRollCard(side, entityId) {
 
 // ── DO ROLL ──────────────────────────────────────────────────
 async function doRoll() {
+  $('roll-status').textContent = 'LOADING HERO DATA…';
+
+  // ── FETCH HERO LEVELS FROM SERVER BEFORE BATTLE STARTS ───
+  // On mobile (MIT App Inventor WebViewer), localStorage is empty on first
+  // launch, so we must pull the authoritative levels from Google Sheets first.
+  // This ensures the player fights at their real level (e.g. Lv 4), not Lv 1.
+  try {
+    const charsRes = await apiCall({ action: 'getChars', userID: user.userID });
+    if (charsRes.success && charsRes.characters) {
+      const lvls = JSON.parse(safeLocalStorage.getItem('tenfold_levels_'+user.userID)||'{}');
+      charsRes.characters.forEach(c => {
+        const servLv = c.level || 1;
+        const servXP = c.xp    || 0;
+        const localLv = lvls[c.heroID] || 1;
+        if (servLv > localLv) {
+          lvls[c.heroID]         = servLv;
+          lvls[c.heroID + '_xp'] = servXP;
+        }
+      });
+      safeLocalStorage.setItem('tenfold_levels_'+user.userID, JSON.stringify(lvls));
+    }
+  } catch(e) { /* offline — use whatever is in localStorage */ }
+
   $('roll-status').textContent = 'ROLLING COMBATANTS & MAP…';
 
   const pId = Game.getSelectedHero() || 'aeron';
   rollPlayerHeroId = pId;
 
   // Ensure unlocks
-  const saved = JSON.parse(localStorage.getItem('tenfold_unlocked_'+user.userID)||'[]');
+  const saved = JSON.parse(safeLocalStorage.getItem('tenfold_unlocked_'+user.userID)||'[]');
   const unlocked = Array.from(new Set(['aeron','lyra','kael','riven','selene','draven','mira','orion','brutus','elysia',...saved]));
-  localStorage.setItem('tenfold_unlocked_'+user.userID, JSON.stringify(unlocked));
+  safeLocalStorage.setItem('tenfold_unlocked_'+user.userID, JSON.stringify(unlocked));
 
-  const mode       = sessionStorage.getItem('tenfold_battle_mode') || 'arena';
-  const fixedEnemy = sessionStorage.getItem('tenfold_battle_enemy') || '';
+  const mode       = safeSessionStorage.getItem('tenfold_battle_mode') || 'arena';
+  const fixedEnemy = safeSessionStorage.getItem('tenfold_battle_enemy') || '';
+
+  // When entering arena mode, aggressively wipe any leftover story keys from
+  // the in-memory safeSessionStorage so they can't bleed into the arena roll.
+  if (mode !== 'story') {
+    safeSessionStorage.removeItem('tenfold_battle_enemy');
+    safeSessionStorage.removeItem('tenfold_battle_enemy_lv');
+    safeSessionStorage.removeItem('tenfold_battle_chapter');
+    safeSessionStorage.removeItem('tenfold_battle_stage');
+    safeSessionStorage.removeItem('tenfold_battle_name');
+    safeSessionStorage.removeItem('tenfold_battle_is_boss');
+  }
 
   // ══════════════════════════════════════════════════════════
   // STORY MODE — fixed enemy (mob or story hero), skip roll
+  // Only enter story branch when mode is explicitly 'story'
+  // AND fixedEnemy resolves to a known entity (hero or story mob).
+  // This prevents stale sessionStorage from accidentally routing
+  // an arena battle through the story path.
   // ══════════════════════════════════════════════════════════
-  if (mode === 'story' && fixedEnemy) {
+  const isKnownEnemy = fixedEnemy && (!!STORY_ENEMIES[fixedEnemy] || !!HEROES[fixedEnemy]);
+  if (mode === 'story' && isKnownEnemy) {
     const isStoryMonster = !!STORY_ENEMIES[fixedEnemy];
     const isStoryHero    = !!HEROES[fixedEnemy];
 
@@ -1615,10 +1907,10 @@ async function doRoll() {
 
 // ── START BATTLE ─────────────────────────────────────────────
 function startBattle() {
-  const lvls = JSON.parse(localStorage.getItem('tenfold_levels_'+user.userID)||'{}');
+  const lvls = JSON.parse(safeLocalStorage.getItem('tenfold_levels_'+user.userID)||'{}');
   const pLv  = lvls[rollPlayerHeroId]||1;
-  // Story monsters use their fixed level from sessionStorage; others scale near player
-  const fixedELv = +sessionStorage.getItem('tenfold_battle_enemy_lv');
+  // Story monsters use their fixed level from safeSessionStorage; others scale near player
+  const fixedELv = +safeSessionStorage.getItem('tenfold_battle_enemy_lv');
   const eLv  = fixedELv || Math.max(1, pLv+rand(-1,1));
 
   initBattleState(rollPlayerHeroId, rollEnemyHeroId, rollMap, pLv, eLv);
