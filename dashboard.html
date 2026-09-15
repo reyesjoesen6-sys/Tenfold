@@ -2,8 +2,19 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
+  <link rel="manifest" href="manifest.json"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
   <title>Dashboard — Tenfold Legends</title>
+  <script>
+  (function(){
+    if (screen.orientation && screen.orientation.lock) {
+      screen.orientation.lock('landscape').catch(function(){});
+    }
+  })();
+  </script>
   <link rel="stylesheet" href="style.css"/>
   <style>
     .dash-page { min-height: 100vh; padding-bottom: 60px; }
@@ -469,6 +480,75 @@
       .dash-card-title { font-size: 0.65rem; letter-spacing: 2px; }
       .heroes-unlock-grid { grid-template-columns: repeat(5,1fr); gap: 4px; }
     }
+    @media screen and (orientation: landscape) and (max-height: 600px) {
+
+  /* Keep logout visible on landscape phone */
+  .navbar {
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px !important;
+    gap: 8px;
+  }
+
+  .navbar-logo {
+    flex-shrink: 0;
+  }
+
+  .navbar-logo span {
+    font-size: 0.75rem !important;
+  }
+
+  .navbar-links {
+    display: flex !important;
+    flex: 1;
+    justify-content: center;
+    gap: 4px !important;
+  }
+
+  .navbar-links .nav-btn {
+    display: inline-flex !important;
+    padding: 6px 7px !important;
+    font-size: 0.62rem !important;
+  }
+
+  .nav-user {
+    display: flex !important;
+    align-items: center;
+    gap: 5px !important;
+    flex-shrink: 0;
+  }
+
+  .nav-user > span {
+    display: none;
+  }
+
+  .nav-score {
+    font-size: 0.65rem !important;
+    padding: 5px 7px !important;
+  }
+
+  /* LOGOUT ALWAYS VISIBLE */
+  .nav-user .danger,
+  .nav-user .btn-sm {
+    display: inline-flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    padding: 6px 9px !important;
+    font-size: 0.62rem !important;
+    white-space: nowrap;
+  }
+
+  /* Hide hamburger because landscape uses full navigation */
+  .nav-hamburger {
+    display: none !important;
+  }
+
+  /* Hide mobile drawer */
+  .nav-mobile-drawer {
+    display: none !important;
+  }
+}
   </style>
 </head>
 <body class="dash-page">
@@ -507,6 +587,12 @@
     <div class="nav-score">🏆 <span id="nav-score-mobile">0</span> pts</div>
     <button class="nav-btn danger btn-sm" onclick="Game.logout()">Logout</button>
   </div>
+</div>
+
+<!-- ROTATE TOAST -->
+<div class="rotate-toast" id="rotate-toast">
+  <span class="rotate-toast-icon">📱</span>
+  Rotate to landscape for the best experience
 </div>
 
 <!-- ══════════════ HERO BANNER ══════════════ -->
@@ -605,7 +691,7 @@
     </div>
     <div class="dash-card-body">
       <div class="quick-actions">
-        <a class="qa-btn highlight" href="battle.html" onclick="sessionStorage.setItem('tenfold_battle_mode','arena');sessionStorage.removeItem('tenfold_battle_enemy');sessionStorage.removeItem('tenfold_battle_enemy_lv');sessionStorage.removeItem('tenfold_battle_chapter');sessionStorage.removeItem('tenfold_battle_stage');sessionStorage.removeItem('tenfold_battle_name');sessionStorage.removeItem('tenfold_battle_is_boss');">
+        <a class="qa-btn highlight" href="battle.html" onclick="safeSessionStorage.setItem('tenfold_battle_mode','arena');safeSessionStorage.removeItem('tenfold_battle_enemy');safeSessionStorage.removeItem('tenfold_battle_enemy_lv');safeSessionStorage.removeItem('tenfold_battle_chapter');safeSessionStorage.removeItem('tenfold_battle_stage');safeSessionStorage.removeItem('tenfold_battle_name');safeSessionStorage.removeItem('tenfold_battle_is_boss');">
           <span class="qa-icon">⚔</span>
           <div class="qa-text">
             <div class="qa-title">Enter Arena</div>
@@ -757,10 +843,36 @@ if (_mobileSc) _mobileSc.textContent = user.totalScore || 0;
   });
 })();
 
+
+
+// ── ROTATE TOAST (soft, shows once per session) ───────────────
+(function() {
+  const toast = document.getElementById('rotate-toast');
+  if (!toast) return;
+  if (safeSessionStorage.getItem('tenfold_rotate_shown')) return;
+
+  function isMobile()  { return window.innerWidth <= 900 || 'ontouchstart' in window; }
+  function isPortrait() {
+    if (screen.orientation && screen.orientation.type)
+      return screen.orientation.type.startsWith('portrait');
+    return window.innerHeight > window.innerWidth;
+  }
+  function check() {
+    if (isMobile() && isPortrait()) {
+      toast.classList.add('show');
+      safeSessionStorage.setItem('tenfold_rotate_shown', '1');
+      setTimeout(() => toast.classList.remove('show'), 5000);
+    }
+  }
+  // Slight delay so page layout is done first
+  setTimeout(check, 300);
+  window.addEventListener('orientationchange', () => setTimeout(check, 200));
+})();
+
 // ── LOCAL DATA ────────────────────────────────────────────────
-const unlocked = JSON.parse(localStorage.getItem('tenfold_unlocked_' + user.userID) || '["aeron","lyra"]');
-const levels   = JSON.parse(localStorage.getItem('tenfold_levels_'   + user.userID) || '{}');
-const progress = JSON.parse(localStorage.getItem('tenfold_story_'    + user.userID) || '{}');
+const unlocked = JSON.parse(safeLocalStorage.getItem('tenfold_unlocked_' + user.userID) || '["aeron","lyra"]');
+const levels   = JSON.parse(safeLocalStorage.getItem('tenfold_levels_'   + user.userID) || '{}');
+const progress = JSON.parse(safeLocalStorage.getItem('tenfold_story_'    + user.userID) || '{}');
 
 // ── RANK TIERS ────────────────────────────────────────────────
 const RANK_TIERS = [
@@ -1132,7 +1244,27 @@ function renderTip() {
 
 // ── LOAD ALL DATA ─────────────────────────────────────────────
 async function loadDashboard() {
-  // Render immediately with local data
+  // ── STEP 1: Fetch hero levels from server FIRST ───────────
+  // On mobile (MIT App Inventor WebViewer), localStorage starts empty.
+  // Pull authoritative levels from Google Sheets before rendering anything
+  // so the hero card and roster show the real level (e.g. Lv 4), not Lv 1.
+  const charsRes = await apiCall({ action: 'getChars', userID: user.userID });
+  if (charsRes.success && charsRes.characters) {
+    charsRes.characters.forEach(c => {
+      const servLv  = c.level || 1;
+      const servXP  = c.xp    || 0;
+      const localLv = levels[c.heroID] || 1;
+      if (servLv > localLv) {
+        levels[c.heroID]          = servLv;
+        levels[c.heroID + '_xp']  = servXP;
+      } else if (servLv === localLv) {
+        levels[c.heroID + '_xp'] = Math.max(levels[c.heroID + '_xp'] || 0, servXP);
+      }
+    });
+    safeLocalStorage.setItem('tenfold_levels_' + user.userID, JSON.stringify(levels));
+  }
+
+  // ── STEP 2: Render with correct levels ────────────────────
   renderBanner();
   renderHeroCard();
   renderStoryProgress();
@@ -1148,7 +1280,7 @@ async function loadDashboard() {
     entries = lbRes.leaderboard;
   } else {
     // Offline fallback
-    const saved = localStorage.getItem('tenfold_users');
+    const saved = safeLocalStorage.getItem('tenfold_users');
     const users = saved ? JSON.parse(saved) : [];
     if (!users.find(u => u.id === user.userID)) {
       users.push({ id: user.userID, username: user.username, score: user.totalScore || 0 });
@@ -1165,7 +1297,7 @@ async function loadDashboard() {
   renderLbMini(entries);
 
   // Load recent battles from score sheet (offline: local battle log)
-  const battles = JSON.parse(localStorage.getItem('tenfold_battles_' + user.userID) || '[]');
+  const battles = JSON.parse(safeLocalStorage.getItem('tenfold_battles_' + user.userID) || '[]');
   renderRecentBattles(battles);
 
   // Load story progress from API
@@ -1174,7 +1306,7 @@ async function loadDashboard() {
     storyRes.progress.forEach(p => {
       progress[`${p.chapter}_${p.stage}`] = { completed: p.completed, stars: p.stars || 0 };
     });
-    localStorage.setItem('tenfold_story_' + user.userID, JSON.stringify(progress));
+    safeLocalStorage.setItem('tenfold_story_' + user.userID, JSON.stringify(progress));
     renderStoryProgress(); // re-render with fresh data
   }
 }
