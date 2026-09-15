@@ -2,8 +2,19 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
+  <link rel="manifest" href="manifest.json"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
   <title>Choose Your Legend — Tenfold Legends</title>
+  <script>
+  (function(){
+    if (screen.orientation && screen.orientation.lock) {
+      screen.orientation.lock('landscape').catch(function(){});
+    }
+  })();
+  </script>
   <link rel="stylesheet" href="style.css"/>
   <style>
     .chars-page { min-height: 100vh; }
@@ -343,6 +354,73 @@
       .hero-card-title { font-size: 0.65rem; }
       .hero-card-role  { display: none; }
     }
+
+    /* ============================================================
+       MOBILE NAV — NO HAMBURGER
+       Keep the same direct navigation as desktop.
+       Dashboard | Heroes | Story Mode | Arena | Leaderboard | Logout
+       ============================================================ */
+    @media (max-width: 900px) {
+      .navbar {
+        display:flex !important;
+        align-items:center !important;
+        gap:8px !important;
+        padding:8px 10px !important;
+        overflow-x:auto !important;
+        white-space:nowrap !important;
+        -webkit-overflow-scrolling:touch !important;
+        scrollbar-width:none !important;
+      }
+      .navbar::-webkit-scrollbar { display:none !important; }
+      .navbar-logo { flex:0 0 auto !important; }
+      .navbar-logo span { font-size:0.72rem !important; white-space:nowrap !important; }
+      .navbar-links {
+        display:flex !important;
+        flex:0 0 auto !important;
+        align-items:center !important;
+        gap:4px !important;
+        overflow:visible !important;
+      }
+      .navbar-links .nav-btn {
+        display:inline-flex !important;
+        flex:0 0 auto !important;
+        padding:7px 9px !important;
+        font-size:0.68rem !important;
+        white-space:nowrap !important;
+      }
+      .nav-user {
+        display:flex !important;
+        flex:0 0 auto !important;
+        align-items:center !important;
+        gap:6px !important;
+      }
+      .nav-user > span { display:none !important; }
+      .nav-score {
+        display:inline-flex !important;
+        font-size:0.68rem !important;
+        white-space:nowrap !important;
+      }
+      .nav-user .nav-btn.danger {
+        display:inline-flex !important;
+        flex:0 0 auto !important;
+        padding:7px 9px !important;
+        font-size:0.68rem !important;
+      }
+      .nav-hamburger { display:none !important; }
+      .nav-mobile-drawer { display:none !important; }
+    }
+
+    @media (max-width: 560px) {
+      .navbar { padding:7px 8px !important; gap:6px !important; }
+      .navbar-logo span { font-size:0.62rem !important; letter-spacing:1px !important; }
+      .navbar-links { gap:2px !important; }
+      .navbar-links .nav-btn,
+      .nav-user .nav-btn.danger {
+        padding:6px 7px !important;
+        font-size:0.61rem !important;
+      }
+      .nav-score { font-size:0.61rem !important; }
+    }
   </style>
 </head>
 <body class="chars-page">
@@ -381,6 +459,12 @@
     <div class="nav-score">🏆 <span id="nav-score-mobile">0</span> pts</div>
     <button class="nav-btn danger btn-sm" onclick="Game.logout()">Logout</button>
   </div>
+</div>
+
+<!-- ROTATE TOAST -->
+<div class="rotate-toast" id="rotate-toast">
+  <span class="rotate-toast-icon">📱</span>
+  Rotate to landscape for the best experience
 </div>
 
 <!-- PAGE HEADER -->
@@ -432,18 +516,33 @@ const user = Game.user;
 document.getElementById('nav-username').textContent = user.username;
 document.getElementById('nav-score').textContent    = user.totalScore || 0;
 
+// Show admin badge in navbar if this is an admin account
+if (Game.isAdmin()) {
+  const badge = document.createElement('span');
+  badge.textContent = '👑 ADMIN';
+  badge.style.cssText = 'font-size:0.68rem;font-weight:800;letter-spacing:1.5px;color:#f0c040;background:rgba(240,192,64,0.12);border:1px solid rgba(240,192,64,0.4);border-radius:20px;padding:3px 9px;flex-shrink:0;';
+  document.querySelector('.nav-user').prepend(badge);
+}
+
 // ── UNLOCKED HEROES ───────────────────────────────────────────
 // Aeron is always free. Every other hero unlocks ONLY by clearing
 // the required chapter boss in Story Mode.
-// unlockedHeroes (from API/localStorage) is used ONLY for hero level data,
+// unlockedHeroes (from API/safeLocalStorage) is used ONLY for hero level data,
 // NOT as an unlock authority — story progress is the sole authority.
-let unlockedHeroes = JSON.parse(localStorage.getItem('tenfold_unlocked_' + user.userID) || '["aeron"]');
-let heroLevels     = JSON.parse(localStorage.getItem('tenfold_levels_'   + user.userID) || '{}');
-let storyProgress  = JSON.parse(localStorage.getItem('tenfold_story_'    + user.userID) || '{}');
+let unlockedHeroes = JSON.parse(safeLocalStorage.getItem('tenfold_unlocked_' + user.userID) || '["aeron"]');
+let heroLevels     = JSON.parse(safeLocalStorage.getItem('tenfold_levels_'   + user.userID) || '{}');
+let storyProgress  = JSON.parse(safeLocalStorage.getItem('tenfold_story_'    + user.userID) || '{}');
 
-// Wipe any stale unlock data so localStorage can never bypass story locks.
+// Wipe any stale unlock data so safeLocalStorage can never bypass story locks.
 // The only valid unlocks are aeron (free) + heroes whose chapter boss is cleared.
+// Admin accounts skip this — they keep all heroes unlocked.
 function rebuildUnlockedFromStory() {
+  if (Game.isAdmin()) {
+    // Admins always have every hero unlocked
+    unlockedHeroes = Object.keys(HERO_UNLOCK_AFTER_CH);
+    safeLocalStorage.setItem('tenfold_unlocked_' + user.userID, JSON.stringify(unlockedHeroes));
+    return;
+  }
   const rebuilt = ['aeron'];
   for (const [id, afterCh] of Object.entries(HERO_UNLOCK_AFTER_CH)) {
     if (afterCh === 0) continue;
@@ -453,7 +552,7 @@ function rebuildUnlockedFromStory() {
     }
   }
   unlockedHeroes = rebuilt;
-  localStorage.setItem('tenfold_unlocked_' + user.userID, JSON.stringify(unlockedHeroes));
+  safeLocalStorage.setItem('tenfold_unlocked_' + user.userID, JSON.stringify(unlockedHeroes));
 }
 
 // ── CHAPTER ORDER (mirrors story.html CHAPTERS array) ─────────
@@ -485,7 +584,9 @@ const HERO_UNLOCK_AFTER_CH = {
 };
 
 // Returns true if the hero is story-unlocked (chapter boss cleared or hero is aeron)
+// Admin accounts bypass all story locks and always return true.
 function isHeroStoryUnlocked(id) {
+  if (Game.isAdmin()) return true; // admins have all heroes unlocked
   const afterCh = HERO_UNLOCK_AFTER_CH[id];
   if (afterCh === undefined || afterCh === 0) return true; // aeron / unknown
   // Check if ch{afterCh}_st5 is completed in storyProgress
@@ -517,7 +618,7 @@ function buildGrid() {
   HERO_ORDER.forEach(id => {
     const h       = HEROES[id];
     // Story progress is the SOLE unlock authority.
-    // unlockedHeroes from localStorage/API is ignored for locking purposes
+    // unlockedHeroes from safeLocalStorage/API is ignored for locking purposes
     // to prevent stale data from showing heroes as unlocked.
     const locked  = !isHeroStoryUnlocked(id);
     const level   = heroLevels[id] || 1;
@@ -699,13 +800,13 @@ function updateFooter(id) {
 function goToBattle() {
   if (!currentSelected) { showToast('Select a hero first!', 'error'); return; }
   // Clear any leftover story session data so Arena mode works cleanly
-  sessionStorage.setItem('tenfold_battle_mode', 'arena');
-  sessionStorage.removeItem('tenfold_battle_enemy');
-  sessionStorage.removeItem('tenfold_battle_enemy_lv');
-  sessionStorage.removeItem('tenfold_battle_chapter');
-  sessionStorage.removeItem('tenfold_battle_stage');
-  sessionStorage.removeItem('tenfold_battle_name');
-  sessionStorage.removeItem('tenfold_battle_is_boss');
+  safeSessionStorage.setItem('tenfold_battle_mode', 'arena');
+  safeSessionStorage.removeItem('tenfold_battle_enemy');
+  safeSessionStorage.removeItem('tenfold_battle_enemy_lv');
+  safeSessionStorage.removeItem('tenfold_battle_chapter');
+  safeSessionStorage.removeItem('tenfold_battle_stage');
+  safeSessionStorage.removeItem('tenfold_battle_name');
+  safeSessionStorage.removeItem('tenfold_battle_is_boss');
   window.location.href = 'battle.html';
 }
 
@@ -727,15 +828,27 @@ function showToast(msg, type = 'info') {
 async function loadHeroData() {
   const res = await apiCall({ action: 'getChars', userID: user.userID });
   if (res.success && res.characters) {
-    // Only pull level data from the API — do NOT use API unlock list.
-    // Story progress is the sole unlock authority.
-    res.characters.forEach(c => { heroLevels[c.heroID] = c.level; });
-    localStorage.setItem('tenfold_levels_' + user.userID, JSON.stringify(heroLevels));
+    // Merge server levels into local — keep whichever is higher, never downgrade.
+    // After the setHeroLevel fix in battle.html, the server should always be
+    // up-to-date, but this guard protects against any offline play edge cases.
+    res.characters.forEach(c => {
+      const servLv  = c.level || 1;
+      const servXP  = c.xp    || 0;
+      const localLv = heroLevels[c.heroID] || 1;
+      if (servLv > localLv) {
+        heroLevels[c.heroID]          = servLv;
+        heroLevels[c.heroID + '_xp']  = servXP;
+      } else if (servLv === localLv) {
+        // Same level — take server XP if it's higher (more accurate)
+        heroLevels[c.heroID + '_xp'] = Math.max(heroLevels[c.heroID + '_xp'] || 0, servXP);
+      }
+    });
+    safeLocalStorage.setItem('tenfold_levels_' + user.userID, JSON.stringify(heroLevels));
   }
   // Re-read story progress in case it was updated by a recent battle
-  storyProgress = JSON.parse(localStorage.getItem('tenfold_story_' + user.userID) || '{}');
+  storyProgress = JSON.parse(safeLocalStorage.getItem('tenfold_story_' + user.userID) || '{}');
   // Always rebuild unlock list strictly from story progress — this wipes any
-  // stale localStorage data that would show locked heroes as unlocked.
+  // stale safeLocalStorage data that would show locked heroes as unlocked.
   rebuildUnlockedFromStory();
   buildGrid();
   // Restore previous selection (only if hero is actually story-unlocked)
@@ -769,6 +882,29 @@ if (_mobileSc) _mobileSc.textContent = user.totalScore || 0;
       btn.classList.remove('open');
     });
   });
+})();
+
+// ── ROTATE TOAST (soft, shows once per session) ───────────────
+(function() {
+  const toast = document.getElementById('rotate-toast');
+  if (!toast) return;
+  if (safeSessionStorage.getItem('tenfold_rotate_shown')) return;
+
+  function isMobile()  { return window.innerWidth <= 900 || 'ontouchstart' in window; }
+  function isPortrait() {
+    if (screen.orientation && screen.orientation.type)
+      return screen.orientation.type.startsWith('portrait');
+    return window.innerHeight > window.innerWidth;
+  }
+  function check() {
+    if (isMobile() && isPortrait()) {
+      toast.classList.add('show');
+      safeSessionStorage.setItem('tenfold_rotate_shown', '1');
+      setTimeout(() => toast.classList.remove('show'), 5000);
+    }
+  }
+  setTimeout(check, 300);
+  window.addEventListener('orientationchange', () => setTimeout(check, 200));
 })();
 
 // ── INIT ──────────────────────────────────────────────────────
